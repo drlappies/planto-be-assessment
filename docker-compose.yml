@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  csv-editor-postgres:
+    image: postgres:16.1-alpine3.19
+    container_name: csv-editor-postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:
