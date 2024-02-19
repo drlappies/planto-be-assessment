@@ -1,11 +1,12 @@
 package com.planto.fullstackassessment.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,15 +23,15 @@ import com.planto.fullstackassessment.service.CsvService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
+@CrossOrigin
 @RequiredArgsConstructor
 @RequestMapping("/api/csv")
 public class CsvController {
     private final CsvService csvService;
 
     @PostMapping("/upload")
-    public void uploadCsvFile(@RequestParam("file") MultipartFile file) {
-        this.csvService.uploadCsvFile(file);
-        return;
+    public CsvEntity uploadCsvFile(@RequestParam("file") MultipartFile file) {
+        return this.csvService.uploadCsvFile(file);
     }
 
     @GetMapping()
@@ -40,7 +41,7 @@ public class CsvController {
     }
 
     @GetMapping("/{id}")
-    public Page<CsvRowEntity> getCsvById(@PathVariable Long id, @RequestParam(defaultValue = "0") int offset,
+    public Map<String, Object> getCsvById(@PathVariable Long id, @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "100") int limit) {
         return csvService.getCsvRowsByCsvId(id, PageRequest.of(offset, limit));
     }

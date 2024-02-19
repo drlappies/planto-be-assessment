@@ -29,7 +29,7 @@ public class CsvEntity {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "csv_id_seq")
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String filename;
 
     @JsonIgnore

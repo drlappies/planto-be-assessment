@@ -8,10 +8,13 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,6 +26,7 @@ import com.planto.fullstackassessment.model.CsvRowEntity;
 import com.planto.fullstackassessment.repository.CsvRepository;
 import com.planto.fullstackassessment.repository.CsvRowRepository;
 
+import jakarta.persistence.Entity;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,14 +36,8 @@ public class CsvService {
     private final CsvRowRepository csvRowRepository;
     private static final int BATCH_SIZE = 1000;
 
-    public void uploadCsvFile(MultipartFile file) {
+    public CsvEntity uploadCsvFile(MultipartFile file) {
         String filename = file.getOriginalFilename();
-
-        CsvEntity csv = this.getCsvFileByFilename(filename);
-
-        if (csv != null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicated filename");
-        }
 
         CsvEntity csvEntity = new CsvEntity();
         csvEntity.setFilename(filename);
@@ -73,17 +71,29 @@ public class CsvService {
             }
 
             bufferedReader.close();
+
+            return csvEntity;
         } catch (IOException ioException) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, ioException.getMessage());
         }
     }
 
-    public CsvEntity getCsvFileByFilename(String filename) {
-        return csvRepository.findByFilename(filename);
-    }
+    public Map<String, Object> getCsvRowsByCsvId(Long csvId, Pageable pageable) {
+        Map<String, Object> response = new HashMap<>();
+        Optional<CsvEntity> csvEntity = csvRepository.findById(csvId);
 
-    public Page<CsvRowEntity> getCsvRowsByCsvId(Long csvId, Pageable pageable) {
-        return csvRowRepository.findByParentId(csvId, pageable);
+        if (!csvEntity.isPresent()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+
+        Sort sort = Sort.by(Sort.Direction.ASC, "id");
+        Page<CsvRowEntity> csvRowEntity = csvRowRepository.findByParentId(csvId,
+                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort));
+
+        response.put("csv", csvEntity);
+        response.put("rows", csvRowEntity);
+
+        return response;
     }
 
     public Page<CsvEntity> getCsvs(Pageable pageable) {
@@ -113,6 +123,8 @@ public class CsvService {
                 csvRowRepository.save(csvRowEntity);
             }
         }
+
+        csvRowRepository.flush();
 
         return currentRows;
     }
