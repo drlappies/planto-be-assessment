@@ -39,6 +39,10 @@ public class CsvService {
     public CsvEntity uploadCsvFile(MultipartFile file) {
         String filename = file.getOriginalFilename();
 
+        if (!filename.toLowerCase().endsWith(".csv")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is not CSV");
+        }
+
         CsvEntity csvEntity = new CsvEntity();
         csvEntity.setFilename(filename);
         csvRepository.save(csvEntity);
