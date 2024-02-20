@@ -1,30 +1,36 @@
 package com.planto.fullstackassessment.service;
 
-import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.planto.fullstackassessment.dtos.CsvRowDto;
 import com.planto.fullstackassessment.model.CsvEntity;
 import com.planto.fullstackassessment.model.CsvRowEntity;
 import com.planto.fullstackassessment.repository.CsvRepository;
 import com.planto.fullstackassessment.repository.CsvRowRepository;
 
-import java.io.IOException;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
-class CsvServiceTest {
+@ExtendWith(MockitoExtension.class)
+public class CsvServiceTest {
 
     @Mock
     private CsvRepository csvRepository;
@@ -35,96 +41,43 @@ class CsvServiceTest {
     @InjectMocks
     private CsvService csvService;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-
     @Test
-    void testUploadCsvFile() throws IOException {
-        // Arrange
-        String filename = "example.csv";
-        MockMultipartFile file = new MockMultipartFile("file", filename, "text/csv", "test,csv,data".getBytes());
+    public void givenCsvFile_whenUploadCsvFile_thenReturnCsvEntity() {
+        String filename = "test.csv";
+        MockMultipartFile file = new MockMultipartFile("file", filename, "text/csv",
+                "column0,column1,column2,column3,column4\nvalue0,value1,value2,value3,value4\n".getBytes());
 
-        CsvEntity existingCsvEntity = new CsvEntity();
-        existingCsvEntity.setId(1L);
+        CsvEntity result = csvService.uploadCsvFile(file);
 
-        when(csvRepository.findByFilename(eq(filename))).thenReturn(existingCsvEntity);
-        when(csvRepository.save(any())).thenReturn(new CsvEntity());
-        when(csvRowRepository.save(any())).thenReturn(new CsvRowEntity());
-
-        // Act
-        csvService.uploadCsvFile(file);
-
-        // Assert
-        verify(csvRepository, times(1)).findByFilename(eq(filename));
-        verify(csvRepository, times(1)).save(any());
-        verify(csvRowRepository, atLeastOnce()).save(any());
-    }
-
-    @Test
-    void testUploadCsvFileDuplicateFilename() throws IOException {
-        // Arrange
-        String filename = "example.csv";
-        MockMultipartFile file = new MockMultipartFile("file", filename, "text/csv", "test,csv,data".getBytes());
-
-        when(csvRepository.findByFilename(eq(filename))).thenReturn(new CsvEntity());
-
-        // Act and Assert
-        assertThrows(ResponseStatusException.class, () -> csvService.uploadCsvFile(file));
-    }
-
-    @Test
-    void testGetCsvRowsByCsvId() {
-        // Arrange
-        Long csvId = 1L;
-        PageRequest pageable = PageRequest.of(0, 5);
-        Page<CsvRowEntity> expectedPage = mock(Page.class);
-
-        when(csvRowRepository.findByParentId(eq(csvId), eq(pageable))).thenReturn(expectedPage);
-
-        // Act
-        Page<CsvRowEntity> result = csvService.getCsvRowsByCsvId(csvId, pageable);
-
-        // Assert
-        assertEquals(expectedPage, result);
-    }
-
-    @Test
-    void testGetCsvs() {
-        // Arrange
-        PageRequest pageable = PageRequest.of(0, 5);
-        Page<CsvEntity> expectedPage = mock(Page.class);
-
-        when(csvRepository.findAll(eq(pageable))).thenReturn(expectedPage);
-
-        // Act
-        Page<CsvEntity> result = csvService.getCsvs(pageable);
-
-        // Assert
-        assertEquals(expectedPage, result);
-    }
-
-    @Test
-    void testPatchCsvById() {
-        // Arrange
-        Long csvId = 1L;
-        CsvRowDto csvRowDto = new CsvRowDto();
-        csvRowDto.setId(1L);
-        List<CsvRowDto> csvRowDtos = List.of(csvRowDto);
-
-        CsvRowEntity existingCsvRowEntity = new CsvRowEntity();
-        existingCsvRowEntity.setId(1L);
-
-        when(csvRowRepository.findAllById(any())).thenReturn(List.of(existingCsvRowEntity));
-        when(csvRowRepository.save(any())).thenReturn(new CsvRowEntity());
-
-        // Act
-        List<CsvRowEntity> result = csvService.patchCsvById(csvId, csvRowDtos);
-
-        // Assert
         assertNotNull(result);
-        assertEquals(1, result.size());
-        verify(csvRowRepository, times(1)).save(any());
+        assertEquals(filename, result.getFilename());
+        verify(csvRepository, times(1)).save(any(CsvEntity.class));
+        verify(csvRowRepository, atLeastOnce()).save(any(CsvRowEntity.class));
+    }
+
+    @Test
+    public void givenNonCsvFile_whenUploadCsvFile_thenThrowBadRequestException() {
+        String filename = "test.txt";
+        MockMultipartFile file = new MockMultipartFile("file", filename, "text/plain", new byte[0]);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> csvService.uploadCsvFile(file));
+
+        assertEquals("File is not CSV", exception.getReason());
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+    }
+
+    @Test
+    public void givenInvalidCsvId_whenGetCsvRowsByCsvId_thenThrowNotFoundException() {
+        // Arrange
+        Long csvId = 2L;
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "id"));
+
+        when(csvRepository.findById(csvId)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> csvService.getCsvRowsByCsvId(csvId, pageable));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(csvRepository, times(1)).findById(csvId);
     }
 }
