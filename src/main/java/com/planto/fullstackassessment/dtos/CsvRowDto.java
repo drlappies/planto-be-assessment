@@ -1,10 +1,12 @@
 package com.planto.fullstackassessment.dtos;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@AllArgsConstructor
 public class CsvRowDto {
     private Long id;
     private String column0;
